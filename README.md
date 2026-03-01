@@ -1,25 +1,25 @@
 # Avatars Plugin for CTFd
 
-Plugin sederhana untuk menambahkan fitur upload avatar/foto profil pada user dan team di CTFd.  
-Tidak memerlukan perubahan database — semua avatar disimpan sebagai file di filesystem.
+A simple plugin to add avatar/profile photo upload features for users and teams in CTFd.  
+No database changes needed — all avatars are stored as files in the filesystem.
 
-## Fitur
+## Features
 
-- **Upload avatar user** — di halaman Settings
-- **Upload avatar team** — di modal edit team (hanya captain)
-- **Fallback otomatis** — Uploaded file → Gravatar (user) → DiceBear identicon (team)
-- **File-based storage** — tanpa modifikasi schema database
-- **Docker-ready** — menggunakan `UPLOAD_FOLDER` config dari CTFd
-- **Graceful degradation** — jika storage read-only, upload dinonaktifkan tapi halaman tetap berfungsi normal
+- **User avatar upload** — on Settings page
+- **Team avatar upload** — in the team edit modal (captain only)
+- **Automatic fallback** — Uploaded file → Gravatar (user) → DiceBear identicon (team)
+- **File-based storage** — no database schema modification
+- **Docker-ready** — uses CTFd's `UPLOAD_FOLDER` config
+- **Graceful degradation** — if storage is read-only, uploading is disabled but the page remains functional
 
-## Persyaratan
+## Requirements
 
 - CTFd 3.x+
-- Theme yang sudah mengintegrasikan template helper `avatar_url()` (contoh: theme `wreckit`)
+- Theme that integrates the `avatar_url()` template helper (for example: `wreckit` theme)
 
-## Instalasi
+## Installation
 
-### 1. Copy plugin ke CTFd
+### 1. Copy the plugin to CTFd
 
 ```bash
 cp -r avatars/ /path/to/CTFd/CTFd/plugins/avatars/
@@ -27,11 +27,11 @@ cp -r avatars/ /path/to/CTFd/CTFd/plugins/avatars/
 
 ### 2. Restart CTFd
 
-Plugin akan otomatis dimuat oleh CTFd saat startup.
+The plugin will be loaded automatically by CTFd on startup.
 
-### 3. Pastikan UPLOAD_FOLDER writable
+### 3. Ensure UPLOAD_FOLDER is writable
 
-Plugin menyimpan avatar di `UPLOAD_FOLDER/avatars/`. Pastikan folder ini writable.
+The plugin saves avatars in `UPLOAD_FOLDER/avatars/`. Make sure this folder is writable.
 
 **Bare metal / VM:**
 ```bash
@@ -46,30 +46,30 @@ chmod 755 /path/to/CTFd/CTFd/uploads/avatars
 services:
   ctfd:
     environment:
-      - UPLOAD_FOLDER=/var/uploads          # Volume writable
+      - UPLOAD_FOLDER=/var/uploads          # Writable volume
     volumes:
       - .data/CTFd/uploads:/var/uploads     # Persistent storage
       - ./CTFd/plugins/avatars:/opt/CTFd/CTFd/plugins/avatars:ro
 ```
 
-## Konfigurasi
+## Configuration
 
-Plugin ini tidak memerlukan konfigurasi tambahan. Ia secara otomatis menggunakan:
+This plugin does not require additional configuration. It automatically uses:
 
-| Config | Sumber | Default |
-|--------|--------|---------|
-| `UPLOAD_FOLDER` | CTFd config / env var | `<CTFd_root>/uploads/` |
+| Config           | Source               | Default                  |
+|------------------|---------------------|--------------------------|
+| `UPLOAD_FOLDER`  | CTFd config / env   | `<CTFd_root>/uploads/`   |
 
-### Konstanta Internal
+### Internal Constants
 
-| Konstanta | Nilai | Deskripsi |
-|-----------|-------|-----------|
-| `MAX_FILE_SIZE` | 2 MB | Ukuran maksimum file avatar |
-| `ALLOWED_EXTENSIONS` | png, jpg, jpeg, gif, webp | Format file yang diizinkan |
+| Constant             | Value              | Description                     |
+|----------------------|--------------------|---------------------------------|
+| `MAX_FILE_SIZE`      | 2 MB               | Maximum avatar file size        |
+| `ALLOWED_EXTENSIONS` | png, jpg, jpeg, gif, webp | Allowed file formats      |
 
 ## Storage
 
-Avatar disimpan di filesystem dengan format nama:
+Avatars are stored in the filesystem with the naming format:
 
 ```
 UPLOAD_FOLDER/
@@ -80,102 +80,102 @@ UPLOAD_FOLDER/
     └── team_3.gif
 ```
 
-- Setiap entity hanya boleh memiliki 1 avatar — upload baru otomatis menghapus yang lama
-- Saat avatar dihapus, file dihapus dari disk
+- Each entity may have only 1 avatar — uploading a new one deletes the old
+- When an avatar is deleted, the file is removed from disk
 
 ## API Endpoints
 
-Semua endpoint terdaftar sebagai Flask Blueprint dan tersedia di root URL CTFd.
+All endpoints are registered as Flask Blueprints and available at the CTFd root URL.
 
 ### GET `/avatars/<type>/<id>`
 
-Menampilkan gambar avatar.
+Displays the avatar image.
 
-| Parameter | Tipe | Deskripsi |
-|-----------|------|-----------|
-| `type` | string | `user` atau `team` |
-| `id` | integer | ID user atau team |
+| Parameter  | Type    | Description                    |
+|------------|---------|--------------------------------|
+| `type`     | string  | `user` or `team`               |
+| `id`       | integer | User or team ID                |
 
 **Response:**
-- `200` — Gambar avatar (cache 5 menit)
-- `400` — Type bukan `user`/`team`
-- `404` — Tidak ada avatar yang diupload
+- `200` — Avatar image (cached 5 minutes)
+- `400` — Type is not `user`/`team`
+- `404` — No avatar uploaded
 
 ---
 
 ### POST `/avatars/user/upload`
 
-Upload avatar untuk user yang sedang login.
+Upload an avatar for the logged-in user.
 
 **Auth:** Required (login)
 
 **Body:** `multipart/form-data`
 
-| Field | Tipe | Deskripsi |
-|-------|------|-----------|
-| `avatar` | file | File gambar (max 2MB, format: png/jpg/gif/webp) |
-| `nonce` | string | CSRF nonce dari `Session.nonce` |
+| Field    | Type   | Description                                      |
+|----------|--------|--------------------------------------------------|
+| `avatar` | file   | Image file (max 2MB, format: png/jpg/gif/webp)   |
+| `nonce`  | string | CSRF nonce from `Session.nonce`                  |
 
 **Response:**
 ```json
-// Sukses
+// Success
 { "success": true, "url": "/avatars/user/1" }
 
-// Gagal
+// Failure
 { "success": false, "errors": ["File too large. Max 2MB"] }
 ```
 
-| Status | Kondisi |
-|--------|---------|
-| `200` | Upload berhasil |
-| `400` | File tidak valid / tidak ada |
-| `403` | Tidak terautentikasi |
-| `503` | Storage tidak writable |
+| Status | Condition                                    |
+|--------|----------------------------------------------|
+| `200`  | Upload successful                            |
+| `400`  | Invalid / missing file                       |
+| `403`  | Not authenticated                            |
+| `503`  | Storage not writable                         |
 
 ---
 
 ### POST `/avatars/team/upload`
 
-Upload avatar untuk team. **Hanya captain** yang diizinkan.
+Upload an avatar for a team. **Only captain** is allowed.
 
 **Auth:** Required (login, team captain)
 
 **Body:** `multipart/form-data`
 
-| Field | Tipe | Deskripsi |
-|-------|------|-----------|
-| `avatar` | file | File gambar (max 2MB, format: png/jpg/gif/webp) |
-| `nonce` | string | CSRF nonce dari `Session.nonce` |
+| Field    | Type   | Description                                      |
+|----------|--------|--------------------------------------------------|
+| `avatar` | file   | Image file (max 2MB, format: png/jpg/gif/webp)   |
+| `nonce`  | string | CSRF nonce from `Session.nonce`                  |
 
 **Response:**
 ```json
-// Sukses
+// Success
 { "success": true, "url": "/avatars/team/5" }
 
-// Gagal
+// Failure
 { "success": false, "errors": ["Only the team captain can change the avatar"] }
 ```
 
-| Status | Kondisi |
-|--------|---------|
-| `200` | Upload berhasil |
-| `400` | File tidak valid / bukan anggota team |
-| `403` | Bukan captain / tidak terautentikasi |
-| `503` | Storage tidak writable |
+| Status | Condition                                    |
+|--------|----------------------------------------------|
+| `200`  | Upload successful                            |
+| `400`  | Invalid file / not a team member             |
+| `403`  | Not captain / not authenticated              |
+| `503`  | Storage not writable                         |
 
 ---
 
 ### POST `/avatars/user/delete`
 
-Hapus avatar user yang sedang login.
+Delete the avatar for the logged-in user.
 
 **Auth:** Required (login)
 
 **Body:** `multipart/form-data`
 
-| Field | Tipe | Deskripsi |
-|-------|------|-----------|
-| `nonce` | string | CSRF nonce |
+| Field    | Type   | Description                                      |
+|----------|--------|--------------------------------------------------|
+| `nonce`  | string | CSRF nonce                                       |
 
 **Response:**
 ```json
@@ -186,15 +186,15 @@ Hapus avatar user yang sedang login.
 
 ### POST `/avatars/team/delete`
 
-Hapus avatar team. **Hanya captain** yang diizinkan.
+Delete the team avatar. **Only captain** is allowed.
 
 **Auth:** Required (login, team captain)
 
 **Body:** `multipart/form-data`
 
-| Field | Tipe | Deskripsi |
-|-------|------|-----------|
-| `nonce` | string | CSRF nonce |
+| Field    | Type   | Description                                      |
+|----------|--------|--------------------------------------------------|
+| `nonce`  | string | CSRF nonce                                       |
 
 **Response:**
 ```json
@@ -203,56 +203,56 @@ Hapus avatar team. **Hanya captain** yang diizinkan.
 
 ## Template Helpers
 
-Plugin mendaftarkan helper global di Jinja2 yang bisa dipakai di semua template.
+The plugin registers global helpers in Jinja2 available to all templates.
 
 ### `avatar_url(entity_type, entity_id, fallback_email=None)`
 
-Mengembalikan URL avatar dengan fallback chain:
+Returns the avatar URL with fallback chain:
 
-1. **Uploaded avatar** → `/avatars/{type}/{id}` (jika file ada di disk)
-2. **Gravatar** → `https://www.gravatar.com/avatar/{md5}?d=identicon` (jika `entity_type == "user"` dan `fallback_email` disediakan)
-3. **DiceBear identicon** → `https://api.dicebear.com/7.x/identicon/svg?seed={id}` (fallback terakhir)
+1. **Uploaded avatar** → `/avatars/{type}/{id}` (if file exists on disk)
+2. **Gravatar** → `https://www.gravatar.com/avatar/{md5}?d=identicon` (if `entity_type == "user"` and `fallback_email` is provided)
+3. **DiceBear identicon** → `https://api.dicebear.com/7.x/identicon/svg?seed={id}` (last fallback)
 
-**Contoh penggunaan di template:**
+**Example Usage in Template:**
 
 ```html
-<!-- Avatar user dengan Gravatar fallback -->
+<!-- User avatar with Gravatar fallback -->
 <img src="{{ avatar_url('user', user.id, user.email) }}" alt="Avatar">
 
-<!-- Avatar team dengan DiceBear fallback -->
+<!-- Team avatar with DiceBear fallback -->
 <img src="{{ avatar_url('team', team.id) }}" alt="Team Avatar">
 
-<!-- Di sidebar -->
+<!-- In sidebar -->
 <img src="{{ avatar_url('user', Session.id, User.email) }}" alt="">
 ```
 
 ### `md5` Template Filter
 
-Filter untuk hashing MD5, berguna untuk Gravatar URL manual:
+MD5 hashing filter, useful for manual Gravatar URL:
 
 ```html
 <img src="https://www.gravatar.com/avatar/{{ user.email | md5 }}?d=identicon">
 ```
 
-## Integrasi dengan Theme
+## Theme Integration
 
-Untuk mengintegrasikan plugin ini dengan theme CTFd custom, perlu modifikasi pada:
+To integrate this plugin with a custom CTFd theme, you need to modify:
 
-### 1. Template yang menampilkan avatar
+### 1. Templates displaying avatar
 
-Ganti hardcoded avatar URL dengan `avatar_url()`:
+Replace hardcoded avatar URLs with `avatar_url()`:
 
 ```html
-<!-- Sebelum -->
+<!-- Before -->
 <img src="/themes/core/static/img/default-avatar.png">
 
-<!-- Sesudah -->
+<!-- After -->
 <img src="{{ avatar_url('user', user.id, user.email) }}">
 ```
 
-### 2. Halaman Settings (upload user avatar)
+### 2. Settings Page (user avatar upload)
 
-Tambahkan Alpine.js component `AvatarUpload` di `assets/js/settings.js`:
+Add Alpine.js component `AvatarUpload` in `assets/js/settings.js`:
 
 ```javascript
 Alpine.data("AvatarUpload", () => ({
@@ -315,13 +315,13 @@ Alpine.data("AvatarUpload", () => ({
 }));
 ```
 
-### 3. Halaman Team Private (upload team avatar)
+### 3. Team Private Page (team avatar upload)
 
-Tambahkan Alpine.js component `TeamAvatarUpload` di `assets/js/teams/private.js` — sama seperti di atas tapi endpoint-nya `/avatars/team/upload` dan `/avatars/team/delete`.
+Add Alpine.js component `TeamAvatarUpload` in `assets/js/teams/private.js` — similar to above but endpoints are `/avatars/team/upload` and `/avatars/team/delete`.
 
 ### 4. Scoreboard (client-side avatar)
 
-Untuk avatar di scoreboard yang di-render via JavaScript, gunakan endpoint langsung dengan `onerror` fallback:
+For avatars in the scoreboard rendered via JavaScript, use the endpoint directly with `onerror` fallback:
 
 ```html
 <img src="/avatars/user/${id}"
@@ -330,23 +330,23 @@ Untuk avatar di scoreboard yang di-render via JavaScript, gunakan endpoint langs
 
 ## Troubleshooting
 
-| Problem | Penyebab | Solusi |
-|---------|----------|-------|
-| `OSError: Read-only file system` | `UPLOAD_FOLDER` mengarah ke path read-only | Set env var `UPLOAD_FOLDER` ke volume writable (contoh: `/var/uploads`) |
-| Avatar tidak muncul | Plugin tidak terinstal | Pastikan `CTFd/plugins/avatars/__init__.py` ada |
-| "Avatar uploads not available" (503) | Folder avatars tidak bisa dibuat | Cek permission folder `UPLOAD_FOLDER/avatars/` |
-| Upload berhasil tapi gambar tidak update | Browser cache | Hard refresh (Ctrl+Shift+R) atau append `?cb=timestamp` |
-| "Only the team captain can change the avatar" | Bukan captain team | Hanya captain yang bisa upload/hapus avatar team |
-| Gravatar tidak muncul | Email belum terdaftar di Gravatar | Daftar di [gravatar.com](https://gravatar.com), atau akan tampil identicon default |
+| Problem                               | Cause                                         | Solution                                   |
+|----------------------------------------|-----------------------------------------------|--------------------------------------------|
+| `OSError: Read-only file system`       | `UPLOAD_FOLDER` points to a read-only path    | Set `UPLOAD_FOLDER` env to a writable volume (e.g. `/var/uploads`) |
+| Avatar not showing                     | Plugin not installed                          | Ensure `CTFd/plugins/avatars/__init__.py` exists |
+| "Avatar uploads not available" (503)   | Avatars folder cannot be created              | Check `UPLOAD_FOLDER/avatars/` folder permissions |
+| Successful upload but image not updated| Browser cache                                 | Hard refresh (Ctrl+Shift+R) or append `?cb=timestamp` |
+| "Only the team captain can change the avatar" | Not team captain                      | Only captain can upload/remove team avatar  |
+| Gravatar not appearing                 | Email not registered at Gravatar              | Register at [gravatar.com](https://gravatar.com), or default identicon will be shown |
 
-## Arsitektur
+## Architecture
 
 ```
 Plugin Load Flow:
 ─────────────────
 CTFd startup
   └─ load(app)
-       ├─ _ensure_avatars_dir()      # Buat folder sekali saat startup
+       ├─ _ensure_avatars_dir()      # Create folder once on startup
        ├─ Register Blueprint         # 5 route endpoints
        ├─ Register avatar_url()      # Jinja2 template global
        └─ Register md5 filter        # Jinja2 template filter
@@ -355,7 +355,7 @@ Request Flow (avatar_url):
 ──────────────────────────
 Template render
   └─ avatar_url('user', 1, 'user@email.com')
-       ├─ find_avatar('user', 1)     # Cek file di disk
+       ├─ find_avatar('user', 1)     # Check file on disk
        │   ├─ Found? → return "/avatars/user/1"
        │   └─ Not found? ↓
        ├─ Has email? → Gravatar URL
@@ -372,6 +372,10 @@ POST /avatars/user/upload
   └─ Return JSON { success: true }
 ```
 
-## Lisensi
+## License
 
-Plugin ini merupakan bagian dari theme Wreckit CTFd dan mengikuti lisensi yang sama dengan CTFd.
+This plugin is part of the Wreckit CTFd theme and follows the same license as CTFd.
+
+---
+
+Let me know if you want this saved as a file or if you need any specific details edited!
