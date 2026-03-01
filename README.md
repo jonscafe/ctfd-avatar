@@ -377,5 +377,3 @@ POST /avatars/user/upload
 This plugin is part of the Wreckit CTFd theme and follows the same license as CTFd.
 
 ---
-
-Let me know if you want this saved as a file or if you need any specific details edited!
